@@ -1,3 +1,7 @@
+/**
+ * First Commit by Tealer.Guo
+ * 2020/04/06 - SpinalHDL Version 1.4.0 - Scala Version 2.11.2
+ */
 name := "canomip"
 
 version := "0.1"
