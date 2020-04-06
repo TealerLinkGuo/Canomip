@@ -1,4 +1,5 @@
 # Canomip
  Open source cpu core support mips r6  
 
- Write use SpinalHDL
+ ## About this project
+ Written in SpinalHDL  
