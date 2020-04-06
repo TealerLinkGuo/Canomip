@@ -1,2 +1,6 @@
 *.class
 *.log
+/tmp
+/target
+/project
+/simWorkspace
