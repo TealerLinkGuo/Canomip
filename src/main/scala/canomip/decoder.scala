@@ -1,5 +1,5 @@
 /**
- * MIPS R6 instruction decoder
+ * RISC-V instruction decoder
  * First Ciommit by Tealer.Guo
  * 2020/04/06 - Build decoder file and basic class
  */
