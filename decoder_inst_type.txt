@@ -1,0 +1,101 @@
+RISC-V instruction type
+Tealer.Guo First Commit 2020/04/09
+
+RV32I / RV64I :
+
+    Load Instructions :
+
+        LUI   | 1
+
+    Jump Instructions :
+
+        AUIPC | 2
+        JAL   | 3
+        JALR  | 4
+
+    Brench Instructions :
+
+        BEQ  | 5
+        BNE  | 6
+        BLT  | 7
+        BGE  | 8
+        BLTU | 9
+        BGEU | 10
+
+    Load / Store Instructions :
+
+        LB  | 11
+        LH  | 12
+        LW  | 13
+        LBU | 14
+        LHU | 15
+        SB  | 16
+        SH  | 17
+        SW  | 18
+
+    Immediate Arithmetic Instructions :
+
+        ADDI  | 19
+        SLTI  | 20
+        SLTIU | 21
+        XORI  | 22
+        ORI   | 23
+        ANDI  | 24
+        SLLI  | 25
+        SRLI  | 26
+        SRAI  | 27
+
+    Arithmetic Instructions :
+
+        ADD  | 28
+        SUB  | 29
+        SLL  | 30
+        SLT  | 31
+        SLTU | 32
+        XOR  | 33
+        SRL  | 34
+        SRA  | 35
+        OR   | 36
+        AND  | 37
+
+    Memory Model Instructions :
+
+        FENCE   | 38
+        FENCE.I | 39 (in newest standard called Zefencei Extension)
+
+    Enviroment Instructions :
+
+        ECALL  | 40
+        EBREAK | 41
+
+    CSR Load / Store Instructions(in newest standard called Zicsr Extension) :
+
+        CSRRW  | 42
+        CSRRS  | 43
+        CSRRC  | 44
+        CSRRWI | 45
+        CSRRSI | 46
+        CSRRCI | 47
+
+RV64I :
+
+    Load / Store Instructions :
+        LWU | 110
+        LD  | 111
+        SD  | 112
+
+    Immediate Arithmetic Instructions :
+        SLLI  | 25
+        SRLI  | 26
+        SRAI  | 27
+        ADDIW | 191
+        SLLIW | 251
+        SRLIW | 261
+        SRAIW | 271
+
+    Arithmetic Instructions :
+        ADDW | 281
+        SUBW | 291
+        SLLW | 301
+        SRLW | 341
+        SRAW | 351
