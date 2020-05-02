@@ -5,6 +5,7 @@
  * 2020/04/15 - Build full RV32I/RV64I decoder logic but no putput, no sim - Tealer.Guo
  * 2020/04/16 - Fix some bugs and finish the RV64I decoder, still no sim - Tealer.Guo
  * 2020/04/17 - Code review, fix some bug and finish the decoder sim code - Tealer.Guo
+ * 2020/04/29 - Add more comments - Tealer.Guo
  */
 package canomip
 
@@ -30,7 +31,17 @@ class decoder extends Component {
     // result Bundle
     case class decoder_res() extends Bundle {
         val inst_type = UInt(16 bits)
-        val output_flag = UInt(3 bits) // 001 - R_type. 100 - I_type. 011 - S_type. 010 - B_type. 011 - U_type. 111 - J_type. 110 - ECALL/EBRAK
+        val output_flag = UInt(3 bits) 
+        /**
+         * result Bundle output_flag information
+         * 001 - R_type.
+         * 100 - I_type. 
+         * 011 - S_type. 
+         * 010 - B_type. 
+         * 011 - U_type. 
+         * 111 - J_type. 
+         * 110 - ECALL/EBRAK 
+         */
         val rs1 = UInt(5 bits) // Used as uimm in CSRRWI / CSRRSI / CSRRCI
         val rs2 = UInt(5 bits) // Used as shamt in SLLI / SRLI / SRAI
         val rd = UInt(5 bits)
@@ -681,7 +692,7 @@ object decoder {
             println("========== 2020/04/16 Build by Tealer.Guo ==========")
             println("====================================================")
 
-            
+            // Test Case Template
             // Instructions Sim Template ----------------------------------|
             // println("[Decoder Sim] .")
             // dut.io.i_inst #= binaryToDecWithOutRecur("") //
