@@ -21,6 +21,7 @@ class alu(len: Int) extends Component {
         val o_res_data = out SInt(len bits)
     }
 
+    // Logic
     when(io.i_inst_type === U(28) || io.i_inst_type === U(19)) {
         // ADD, ADDI
         io.o_res_data := io.i_rs1_data + io.i_rs2_imm_data
