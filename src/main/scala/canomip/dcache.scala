@@ -9,7 +9,7 @@ import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
 
-class dcache(len: Int) extend Component {
+class dcache(len: Int) extends Component {
     val io = new Bundle {
         // TODO : io
     }

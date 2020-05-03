@@ -13,12 +13,15 @@ import spinal.core.sim._
 // Sign Extends Module
 class signExtend(len: Int) extends Component {
     val io = new Bundle {
+        // Input
         val i_mode_flag = in UInt(2 bits) // 00 _ 12-bits | 01 _ 20 - bits | 10 _ 8 - bits | 11 _ 16 - bits
         val i_need_extend_data_8 = in UInt(8 bits) // 8-bits sign extend
         val i_need_extend_data_16 = in UInt(16 bits) // 16-bits sign extend
         val i_need_extend_data_12 = in UInt(12 bits) // 12-bits sign extend
         val i_need_extend_data_20 = in UInt(20 bits) // 20-bits sign extend
-        val o_extended_data = out UInt(len bits) // data after sign extends
+
+        // Output
+        val o_extended_data = out SInt(len bits) // data after sign extends
     }
 
     // Logic
@@ -27,68 +30,68 @@ class signExtend(len: Int) extends Component {
         when(io.i_mode_flag === U"00") {
             // 12-bits
             when(U(io.i_need_extend_data_12(11)) === U"1") {
-                io.o_extended_data := U(Cat(U"11111111111111111111", io.i_need_extend_data_12))
+                io.o_extended_data := S(Cat(U"11111111111111111111", io.i_need_extend_data_12))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"00000000000000000000", io.i_need_extend_data_12))
+                io.o_extended_data := S(Cat(U"00000000000000000000", io.i_need_extend_data_12))
             }
         } .elsewhen(io.i_mode_flag === U"01") {
             // 20-bits
             when(U(io.i_need_extend_data_20(19)) === U"1") {
-                io.o_extended_data := U(Cat(U"111111111111", io.i_need_extend_data_20))
+                io.o_extended_data := S(Cat(U"111111111111", io.i_need_extend_data_20))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"000000000000", io.i_need_extend_data_20))
+                io.o_extended_data := S(Cat(U"000000000000", io.i_need_extend_data_20))
             }
         } .elsewhen(io.i_mode_flag === U"10") {
             // 8-bits
             when(U(io.i_need_extend_data_8(7)) === U"1") {
-                io.o_extended_data := U(Cat(U"111111111111111111111111", io.i_need_extend_data_8))
+                io.o_extended_data := S(Cat(U"111111111111111111111111", io.i_need_extend_data_8))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"000000000000000000000000", io.i_need_extend_data_8))
+                io.o_extended_data := S(Cat(U"000000000000000000000000", io.i_need_extend_data_8))
             }
         } .elsewhen(io.i_mode_flag === U"11") {
             // 16-bits
             when(U(io.i_need_extend_data_16(15)) === U"1") {
-                io.o_extended_data := U(Cat(U"1111111111111111", io.i_need_extend_data_16))
+                io.o_extended_data := S(Cat(U"1111111111111111", io.i_need_extend_data_16))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"0000000000000000", io.i_need_extend_data_16))
+                io.o_extended_data := S(Cat(U"0000000000000000", io.i_need_extend_data_16))
             }
         } .otherwise {
             // Illegal
-            io.o_extended_data := U(0)
+            io.o_extended_data := S(0)
         }
     } else if(len == 64) {
         // 64-bits
         when(io.i_mode_flag === U"00") {
             // 12-bits
             when(U(io.i_need_extend_data_12(11)) === U"1") {
-                io.o_extended_data := U(Cat(U"1111111111111111111111111111111111111111111111111111", io.i_need_extend_data_12))
+                io.o_extended_data := S(Cat(U"1111111111111111111111111111111111111111111111111111", io.i_need_extend_data_12))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"0000000000000000000000000000000000000000000000000000", io.i_need_extend_data_12))
+                io.o_extended_data := S(Cat(U"0000000000000000000000000000000000000000000000000000", io.i_need_extend_data_12))
             }
         } .elsewhen(io.i_mode_flag === U"01") {
             // 20-bits
             when(U(io.i_need_extend_data_20(19)) === U"1") {
-                io.o_extended_data := U(Cat(U"11111111111111111111111111111111111111111111", io.i_need_extend_data_20))
+                io.o_extended_data := S(Cat(U"11111111111111111111111111111111111111111111", io.i_need_extend_data_20))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"00000000000000000000000000000000000000000000", io.i_need_extend_data_20))
+                io.o_extended_data := S(Cat(U"00000000000000000000000000000000000000000000", io.i_need_extend_data_20))
             }
         }  .elsewhen(io.i_mode_flag === U"10") {
             // 8-bits
             when(U(io.i_need_extend_data_8(7)) === U"1") {
-                io.o_extended_data := U(Cat(U"11111111111111111111111111111111111111111111111111111111", io.i_need_extend_data_8))
+                io.o_extended_data := S(Cat(U"11111111111111111111111111111111111111111111111111111111", io.i_need_extend_data_8))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"00000000000000000000000000000000000000000000000000000000", io.i_need_extend_data_8))
+                io.o_extended_data := S(Cat(U"00000000000000000000000000000000000000000000000000000000", io.i_need_extend_data_8))
             }
         } .elsewhen(io.i_mode_flag === U"11") {
             // 16-bits
             when(U(io.i_need_extend_data_16(15)) === U"1") {
-                io.o_extended_data := U(Cat(U"111111111111111111111111111111111111111111111111", io.i_need_extend_data_16))
+                io.o_extended_data := S(Cat(U"111111111111111111111111111111111111111111111111", io.i_need_extend_data_16))
             } .otherwise {
-                io.o_extended_data := U(Cat(U"000000000000000000000000000000000000000000000000", io.i_need_extend_data_16))
+                io.o_extended_data := S(Cat(U"000000000000000000000000000000000000000000000000", io.i_need_extend_data_16))
             }
         } .otherwise {
             // Illegal
-            io.o_extended_data := U(0)
+            io.o_extended_data := S(0)
         }
     }
 }

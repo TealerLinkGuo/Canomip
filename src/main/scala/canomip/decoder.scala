@@ -17,6 +17,7 @@ class decoder extends Component {
     val io = new Bundle {
         // Input
         val i_inst = in UInt(32 bits) // 定长32 bit instruction
+        
         // Output
         val o_rs1 = out UInt(5 bits) // rs1
         val o_rs2 = out UInt(5 bits) // rs2
