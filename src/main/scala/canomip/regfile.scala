@@ -3,13 +3,13 @@
  * First commit by Tealer.Guo
  * 2020/05/03 - Build alu basic file and class - First commit
  */
-package canomip
+package canomip.core
 
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
 
-class regfile(len: Int) extends Component {
+class regfile(len: Int, sim_mode: Bool) extends Component {
     val io = new Bundle {
         // Input
         val i_rw_mode = in UInt(2 bits) // 0 _ int reg read, 1 _ int reg write, 10 _ csr reg red, 11 _ csr reg write
@@ -28,9 +28,14 @@ class regfile(len: Int) extends Component {
     }
 
     // Logic
+
     // initial reg or use fpga bram
+    // if sim use this, if run with fpga use blackbox
     val int_reg_file = Vec(RegInit(S(0, len bits)), 32) // int reg file
     val csr_reg_file = Vec(RegInit(S(0, len bits)), 4096) // csr reg file
+
+    // BlackBox
+    // TODO : fpga blackbox
 }
 
 object regfile {

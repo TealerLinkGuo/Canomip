@@ -4,7 +4,7 @@
  * 2020/04/18 - Build alu basic file and class - First commit
  * 2020/05/03 - Finish the alu module and sim - Tealer.Guo
  */
-package canomip
+package canomip.core
 
 import spinal.core._
 import spinal.sim._
@@ -188,6 +188,9 @@ object alu {
 		    return res
 	    }
 
+        /////////////////////////////////////////////////// SIM CODE /////////////////////////////////////////////////
+        /////////////////////////////////////////////// TEST RV64I ALU ///////////////////////////////////////////////
+        //////////////////////////////////////////////// 32 / 64 BITS ////////////////////////////////////////////////
         // Tester
         SimConfig.withWave.doSim(new alu(32)) { dut =>
             // 32-bits

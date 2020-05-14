@@ -3,7 +3,7 @@
  * First commit by Tealer.Guo
  * 2020/05/02 - Build extend basic file and class - First commit
  */
-package canomip
+package canomip.core
 
 import spinal.core._
 import spinal.sim._

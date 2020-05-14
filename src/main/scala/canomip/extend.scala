@@ -4,7 +4,7 @@
  * 2020/04/18 - Build extend basic file and class - First commit
  * 2020/05/02 - Finish extend module and sim success
  */
-package canomip
+package canomip.core
 
 import spinal.core._
 import spinal.sim._

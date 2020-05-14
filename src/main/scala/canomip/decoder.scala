@@ -7,7 +7,7 @@
  * 2020/04/17 - Code review, fix some bug and finish the decoder sim code - Tealer.Guo
  * 2020/04/29 - Add more comments - Tealer.Guo
  */
-package canomip
+package canomip.core
 
 import spinal.core._
 import spinal.sim._
