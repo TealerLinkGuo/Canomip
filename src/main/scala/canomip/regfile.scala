@@ -32,6 +32,9 @@ class regfile(len: Int, sim_mode: Boolean) extends Component {
     }
 
     if(sim_mode == false) {
+        //////////////////////////////////////////////
+        // use with computer sim, not suit for fpga //
+        //////////////////////////////////////////////
         // initial reg or use fpga bram
         // if sim use this, if run with fpga use blackbox
         val int_reg_file = Vec(RegInit(S(0, len bits)), 32) // int reg file, initial value is 0
@@ -77,10 +80,14 @@ class regfile(len: Int, sim_mode: Boolean) extends Component {
             io.o_int_reg_1_afterread_data := S(0)
             io.o_int_reg_2_afterread_data := S(0)
         }
+    } else if(sim_mode == true) {
+        ///////////////////
+        // suit for fpga //
+        ///////////////////
+        // initial BlackBox
+        // TODO : fpga blackbox
     }
 
-    // BlackBox
-    // TODO : fpga blackbox
 }
 
 object regfile {
