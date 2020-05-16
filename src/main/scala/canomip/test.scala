@@ -22,6 +22,14 @@ class test extends Component {
     abc.io.dia := io.a
     abc.io.addra := U(0)
     io.b := abc.io.doa
+
+    val abc1 = new EG4_csr_reg_bram
+    // abc.io.clka := False
+    abc1.io.wea := False
+    abc1.io.cea := False
+    abc1.io.dia := io.a(31 downto 0)
+    abc1.io.addra := U(0)
+    val bbb = abc1.io.doa
 }
 
 object test {

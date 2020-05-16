@@ -9,7 +9,7 @@
  ** TD version	:	4.6.18154
 \************************************************************/
 
-`timescale 1ns / 1ps
+// `timescale 1ns / 1ps
 
 module EG4_csr_reg_bram_64 ( doa, dia, addra, cea, clka, wea );
 
