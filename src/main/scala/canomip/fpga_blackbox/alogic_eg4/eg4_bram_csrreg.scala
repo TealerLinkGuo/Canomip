@@ -3,6 +3,7 @@
  * First commit by Tealer.Guo
  * 2020/05/04 - Build BlackBox basic file - First commit
  * 2020/05/16 - Build finish all module - Tealer.Guo
+ * 2020/05/25 - Fix doc - Tealer.Guo
  */
 package canomip.core.fpgablackbox.anlogicEg4
 
@@ -13,8 +14,8 @@ class EG4_csr_reg_bram extends BlackBox {
         // Clock
         val clka = in Bool() // clock input
         // Input
-        val wea = in Bool() // module enable
-        val cea = in Bool() // read/write Ctrl
+        val wea = in Bool() // read/write Ctrl
+        val cea = in Bool() // module clock enable
         val dia = in SInt(32 bits) // data need write
         val addra = in UInt(12 bits) // bram address
         // Output
