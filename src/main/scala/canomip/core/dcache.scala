@@ -42,27 +42,42 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val o_mem_write_en = out Bool() // write memory EN
         val o_mem_write_addr = out UInt(PA bits) // write memory address (maybe VA or PA, extends to PA)
         val o_mem_nwrite_data = out SInt(len bits) // memory need write data
+    // CSR dependens
+        val i_csr_satp = in SInt(len bits) // need satp.PPN value
     }
 
     // Logic
 
     if(c_mod == 0) {
         // commom mode cache
-        // data struct
-        case class cacheDataStruct() extends Bundle {
-            val data = SInt(len bits) // cache data
-            val tag = UInt(c_cap_tag bits) // cache tag
-            val use_flag = Bool()
-        }
         // sim mode
         if(sim_mode == true) {
             // sim mode not use fpga blackBox
             // Logic
-            // First use VA check TLB
-            val cache_commom = Mem(cacheDataStruct(), wordCount = c_cap) // commom cache
+            // data struct
+            case class cacheDataStruct() extends Bundle {
+                val data = SInt(len bits) // cache data
+                val tag = UInt(c_cap_tag bits) // cache tag
+                val use_flag = Bool()
+            }
+
+            val dcache_commom = Mem(cacheDataStruct(), wordCount = c_cap) // commom cache
+            
+            when(io.i_read_en && !io.i_write_en) {
+                // read cache
+                // First use VA check TLB
+                io.o_tlb_en := True // enable TLB
+                io.o_tlb_addr := io.
+            } .elsewhen(!io.i_read_en && io.i_write_en) {
+                // write cache
+            } .otherwise {
+                // Illegal
+            }
         } else if(sim_mode == false) {
             // use fpga blackBox
         }
+    } else if(c_mode == 1) {
+        // 4 WAY cahce with LRU
     }
 }
 
