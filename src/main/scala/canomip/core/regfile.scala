@@ -13,7 +13,7 @@ import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
 
-import canomip.core.fpgablackbox.anlogicEg4._
+import canomip.fpgablackbox.anlogicEg4._ // blackBox package
 
 class regfile(len: Int, sim_mode: Boolean) extends Component {
     val io = new Bundle {
