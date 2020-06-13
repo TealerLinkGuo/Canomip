@@ -18,7 +18,7 @@ class TLB(tlb_cap: Int, tlb_cap_tag: Int, tlb_mode: Int, len: Int, VA: Int, PA: 
         // val i_tlb_en = in Bool() // TLB EN
     // TLB access
         val i_tlb_acc_en = in Bool() // TLB access EN
-        val i_tlb_addr = in UInt(VA bits) // VA
+        val i_tlb_addr = in UInt(PA bits) // VA
         val o_tlb_statue = out Bool() // True - TLB hit, False - TLB miss
         val o_tlb_pt_data = out SInt(len bits) // if TLB hit, output page table data. if TLB miss output S(0)
     // TLB write
