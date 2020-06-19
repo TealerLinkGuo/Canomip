@@ -7,6 +7,7 @@
  * 2020/06/11 - build finish io bundle and some logic not test - Tealer.Guo
  * 2020/06/13 - build read cache logic not finish not test - Tealer.Guo
  * 2020/06/14 - build finish dcahce no test no sim - Tealer.Guo
+ * 2020/06/19 - Fix some bugs, no sim - Tealer.Guo
  */
 package canomip.core
 
@@ -22,7 +23,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         // Mode 1 - SV39 | VA - 39 bits | PA - 56 bits | len - 64 bits
     val io = new Bundle {
         // Ctrl
-        
+
     // TLB check
         // read TLB
         val o_tlb_read_en = out Bool() // TLB read EN
@@ -78,16 +79,18 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
         // utval 0x043. stval 0x143
 
+        // Logic 
+
         when(privilege_now === U"01") {
             // S-Mode
 
             // write
-            when(error_code === U"3") {
+            when(error_code === U(3)) {
                 // 未对齐
                 io.o_csr_write_en := True
                 io.o_csr_nwrite_addr := U(323) // stvel
                 io.o_csr_nwrite_data := S(4) // Load address misaligned
-            } .elsewhen(error_code === U"1" || error_code === U"2" || error_code === U"4" || error_code === U"5") {
+            } .elsewhen(error_code === U(1) || error_code === U(2) || error_code === U(4) || error_code === U(5)) {
                 // 权限错误, MXR error, PTE无效, 特权级错误
                 io.o_csr_write_en := True
                 io.o_csr_nwrite_addr := U(323) // stvel
@@ -102,12 +105,12 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // U-Mode
 
             // write
-            when(error_code === U"3") {
+            when(error_code === U(3)) {
                 // 未对齐
                 io.o_csr_write_en := True
                 io.o_csr_nwrite_addr := U(67) // utvel
                 io.o_csr_nwrite_data := S(4) // Load address misaligned
-            } .elsewhen(error_code === U"1" || error_code === U"2" || error_code === U"4" || error_code === U"5") {
+            } .elsewhen(error_code === U(1) || error_code === U(2) || error_code === U(4) || error_code === U(5)) {
                 // 权限错误, MXR error, PTE无效, 特权级错误
                 io.o_csr_write_en := True
                 io.o_csr_nwrite_addr := U(67) // utvel
@@ -121,9 +124,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         } .otherwise {
             // Illegal
             // M-Mode don't need mtval
-            io.o_csr_write_en := False
-            io.o_csr_nwrite_addr := U(0) // utvel
-            io.o_csr_nwrite_data := S(666) // Load page fault
+            val carsh = U(0)
         }
         
     }
