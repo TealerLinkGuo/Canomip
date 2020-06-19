@@ -22,6 +22,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         // Mode 1 - SV39 | VA - 39 bits | PA - 56 bits | len - 64 bits
     val io = new Bundle {
         // Ctrl
+        
     // TLB check
         // read TLB
         val o_tlb_read_en = out Bool() // TLB read EN
@@ -32,6 +33,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val o_tlb_write_en = out Bool() // TLB write EN
         val o_tlb_write_addr = out UInt(VA bits)
         val o_tlb_write_data = out SInt(len bits)
+
     // Cache RW
         // read cache
         val i_read_en = in Bool() // read EN
@@ -41,6 +43,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val i_write_en = in Bool() // write EN
         val i_write_addr = in UInt(VA bits) // write data address (Virtual Address)
         val i_nwrite_data = in SInt(len bits) // need write data
+
     // Mem access
         // read mem
         val o_mem_read_en = out Bool() // read memory EN
@@ -50,6 +53,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val o_mem_write_en = out Bool() // write memory EN
         val o_mem_write_addr = out UInt(PA bits) // write memory address (maybe VA or PA, extends to PA)
         val o_mem_nwrite_data = out SInt(len bits) // memory need write data
+
     // CSR access
         // read csr channel 1
         val o_csr_read_en = out Bool() // csr read EN
@@ -62,6 +66,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val o_csr_write_en = out Bool() // csr write EN
         val o_csr_nwrite_addr = out UInt(12 bits) // csr need write address
         val o_csr_nwrite_data = out SInt(len bits) // csr need write data
+
     // Trap-return instruction statue
         val i_ret_inst_statue = in UInt(2 bits) // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
     }
