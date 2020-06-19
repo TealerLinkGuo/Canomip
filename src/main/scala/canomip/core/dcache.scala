@@ -31,7 +31,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         // write TLB
         val o_tlb_write_en = out Bool() // TLB write EN
         val o_tlb_write_addr = out UInt(VA bits)
-        val o_tlb_write_data = out UInt(len bits)
+        val o_tlb_write_data = out SInt(len bits)
     // Cache RW
         // read cache
         val i_read_en = in Bool() // read EN
@@ -68,47 +68,57 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
     // Logic
 
-    def write_error_to_csr(error_code: UInt, privilege_now: UInt) = {
+    def write_error_to_csr(error_code: UInt, privilege_now: UInt): Unit = {
         // write error to CSR REG
 
         // utval 0x043. stval 0x143
 
         when(privilege_now === U"01") {
             // S-Mode
-            io.o_csr_write_en := True
-            io.o_csr_nwrite_addr := U(323) // stvel
 
             // write
             when(error_code === U"3") {
                 // 未对齐
-                io.o_csr_nwrite_data := U(4) // Load address misaligned
+                io.o_csr_write_en := True
+                io.o_csr_nwrite_addr := U(323) // stvel
+                io.o_csr_nwrite_data := S(4) // Load address misaligned
             } .elsewhen(error_code === U"1" || error_code === U"2" || error_code === U"4" || error_code === U"5") {
                 // 权限错误, MXR error, PTE无效, 特权级错误
-                io.o_csr_nwrite_data := U(13) // Load page fault
+                io.o_csr_write_en := True
+                io.o_csr_nwrite_addr := U(323) // stvel
+                io.o_csr_nwrite_data := S(13) // Load page fault
             } .otherwise {
                 // Correct
                 io.o_csr_write_en := False
+                io.o_csr_nwrite_addr := U(0) // stvel
+                io.o_csr_nwrite_data := S(666)
             }
         } .elsewhen(privilege_now === U"00") {
             // U-Mode
-            io.o_csr_write_en := True
-            io.o_csr_nwrite_addr := U(67) // utvel
 
             // write
             when(error_code === U"3") {
                 // 未对齐
-                io.o_csr_nwrite_data := U(4) // Load address misaligned
+                io.o_csr_write_en := True
+                io.o_csr_nwrite_addr := U(67) // utvel
+                io.o_csr_nwrite_data := S(4) // Load address misaligned
             } .elsewhen(error_code === U"1" || error_code === U"2" || error_code === U"4" || error_code === U"5") {
                 // 权限错误, MXR error, PTE无效, 特权级错误
-                io.o_csr_nwrite_data := U(13) // Load page fault
+                io.o_csr_write_en := True
+                io.o_csr_nwrite_addr := U(67) // utvel
+                io.o_csr_nwrite_data := S(13) // Load page fault
             } .otherwise {
                 // Correct
                 io.o_csr_write_en := False
+                io.o_csr_nwrite_addr := U(0) // utvel
+                io.o_csr_nwrite_data := S(666) // Load page fault
             }
         } .otherwise {
             // Illegal
             // M-Mode don't need mtval
-            val crash = U"000"
+            io.o_csr_write_en := False
+            io.o_csr_nwrite_addr := U(0) // utvel
+            io.o_csr_nwrite_data := S(666) // Load page fault
         }
         
     }
@@ -122,23 +132,25 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // io.o_csr_read_en := True
             // io.o_csr_nread_addr_2 := U(768) // mstatue in 0x300
             // val mstatue_data = io.i_csr_nread_data_2
-            return mstatue_data(12 downto 11) // mstatue MPP[1:0] (current privilege)
+            return U(mstatue_data(12 downto 11)) // mstatue MPP[1:0] (current privilege)
         } .elsewhen(io.i_ret_inst_statue === U"10") {
             // SRET
             io.o_csr_read_en := True
             io.o_csr_nread_addr_2 := U(256) // sstatue in 0x100
             val sstatue_data = io.i_csr_nread_data_2
-            return sstatue_data(12 downto 11) // sstatue MPP[1:0] (current privilege)
+            return U(sstatue_data(12 downto 11)) // sstatue MPP[1:0] (current privilege)
         } .elsewhen(io.i_ret_inst_statue === U"11") {
             // URET
             io.o_csr_read_en := True
             io.o_csr_nread_addr_2 := U(0) // sstatue in 0x000 
             val ustatue_data = io.i_csr_nread_data_2
-            return ustatue_data(12 downto 11) // ustatue MPP[1:0] (current privilege)
+            return U(ustatue_data(12 downto 11)) // ustatue MPP[1:0] (current privilege)
         } .otherwise {
             // no exec Trap-ret instruction
             return U"11" // default MRET
         }
+
+        return U"10" // reserved value - default return value
     }
 
     def test_PTE_is_illgal(pte_data: SInt, node_now: UInt, level_index: SInt, mstatue_data: SInt, privilege_now: UInt): UInt = {
@@ -151,26 +163,26 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         // test PTE data is illegal
 
         // get SUM and MXR
-        val MXR = mstatue(19)
-        val SUM = mstatue(18)
+        val MXR = mstatue_data(19)
+        val SUM = mstatue_data(18)
 
         when(level_index === S(0)) {
             // don't have next node
-            when(pte_data(0) === U"1") {
+            when(U(pte_data(0)) === U"1") {
                 // PTE有效
-                when(pte_data(1) === U"1" && privilege_now === U"01") {
-                    when(privilege_now === U"01" && pte_data(4) === U"0") {
+                when(U(pte_data(1)) === U"1" && privilege_now === U"01") {
+                    when(privilege_now === U"01" && U(pte_data(4)) === U"0") {
                         // S-Mode
-                        when(MXR === U"1") {
+                        when(U(MXR) === U"1") {
                             // only success in pte.r = 1
-                            when(pte_data(1) === U"1" && pte_data(2) =/= U"1" || pte_data(3) =/= U"1") {
+                            when(U(pte_data(1)) === U"1" && U(pte_data(2)) =/= U"1" || U(pte_data(3)) =/= U"1") {
                                 return U(0) // correct
                             } .otherwise {
                                 return U(2) // MXR error
                             }
                         } .otherwise {
                             // success with pte.r = 1 && pte.x = 1
-                            when(pte_data(1) === U"1" && pte_data(3) === U"1") {
+                            when(U(pte_data(1)) === U"1" && U(pte_data(3)) === U"1") {
                                 return U(0) // correct
                             } .otherwise {
                                 return U(2) // MXR error
@@ -179,24 +191,24 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     } .otherwise {
                         return U(4) // 特权级错误
                     }
-                } .elsewhen(privilege_now === U"00" && pte_data(4) === U"1") {
+                } .elsewhen(privilege_now === U"00" && U(pte_data(4)) === U"1") {
                     // U-Mode
-                    when(MXR === U"1") {
+                    when(U(MXR) === U"1") {
                             // only success in pte.r = 1
-                            when(pte_data(1) === U"1" && pte_data(2) =/= U"1" || pte_data(3) =/= U"1") {
+                            when(U(pte_data(1)) === U"1" && U(pte_data(2)) =/= U"1" || U(pte_data(3)) =/= U"1") {
                                 return U(0) // correct
                             } .otherwise {
                                 return U(2) // MXR error
                             }
                         } .otherwise {
                             // success with pte.r = 1 && pte.x = 1
-                            when(pte_data(1) === U"1" && pte_data(3) === U"1") {
+                            when(U(pte_data(1)) === U"1" && U(pte_data(3)) === U"1") {
                                 return U(0) // correct
                             } .otherwise {
                                 return U(2) // MXR error
                             }
                         }
-                } .elsewhen(pte_data(6) === U"0") {
+                } .elsewhen(U(pte_data(6)) === U"0") {
                     // pte.a = 0
                     return U(5)
                 }.otherwise {
@@ -207,8 +219,8 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             }
         } .elsewhen(level_index > S(0)) { // level_index > 0
             // have next node
-            when(pte_data(0) === U"1") {
-                when(pte_data(1) === U"0" && pte_data(2) === U"1") {
+            when(U(pte_data(0)) === U"1") {
+                when(U(pte_data(1)) === U"0" && U(pte_data(2)) === U"1") {
                     return U(1) // 权限错误(rwx位于当前模式不符)
                 } .otherwise {
                     return U(0) // correct
@@ -227,7 +239,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
     // Logic
 
-    if(c_mod == 0) {
+    if(c_mode == 0) {
         // commom mode cache
 
         // data bundle
@@ -239,7 +251,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
         // Search MEM ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        def search_cache_address_commom_cache(cache: Mem, addr: UInt): SInt = {
+        def search_cache_address_commom_cache(cache: Mem[cacheDataStruct], addr: UInt): SInt = {
             // Search address in cache and mem and return data
 
             // First search TLB
@@ -290,6 +302,8 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                 // TLB hit
                 return io.i_tlb_read_data
             }
+
+            return S(0) // default return value
         }
 
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -300,14 +314,32 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
             // Logic
 
+            // MMU Logic /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
             // data struct
             val dcache_commom = Mem(cacheDataStruct(), wordCount = c_cap) // commom cache
             
+            // read/write address convert
+            case class vaDataStruct() extends Bundle {
+                val va = UInt(39 bits)
+            }
+
+            val va_Bundle = new vaDataStruct() // save VA
+
+            // convert
+            when(io.i_read_en && !io.i_write_en) {
+                va_Bundle.va := io.i_read_addr
+            } .otherwise {
+                va_Bundle.va := io.i_write_addr
+            }
+
+            val va = va_Bundle.va // get VA
+
             // level index
-            val level_index = reg(SInt(2 bits)) init(2)
+            val level_index = Reg(SInt(2 bits)) init(2)
 
             // MMU fail 
-            val mmu_fail = reg(Bool()) init(false)
+            val mmu_fail = Reg(Bool()) init(false)
 
             // First read csr get satp.PPN and mstatue
 
@@ -320,19 +352,27 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             val mstatue_data = io.i_csr_nread_data_2 // mstatue data
 
             // Get current privilege
-            val cur_privilege = get_current_privilege(mstatue)
+            val cur_privilege = get_current_privilege(mstatue_data)
 
             // SV39 has Three Level
 
             // One Level //////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // Get next level page table entry address
-            val one_level_PTE_addr = stap_PPN * 4096 + io.i_read_addr(38 downto 30) * 8
+            val one_level_PTE_addr = U(stap_PPN * S(4096) + S(io.i_read_addr(38 downto 30)) * S(8))
             // Get data on address
             val one_level_PTE_data = search_cache_address_commom_cache(dcache_commom, one_level_PTE_addr)
             // Check PTE is illegal
-            val one_level_error = test_PTE_is_illgal(one_level_PTE_data, U(0), level_index, mstatue, cur_privilege)
-             
+            val one_level_error = test_PTE_is_illgal(one_level_PTE_data, U(0), level_index, mstatue_data, cur_privilege)
+            
+            // final address //////////////////////
+
+            case class finalAddrDataStruct() extends Bundle {
+                val final_addr = UInt(PA bits)
+            }
+
+            val fa = new finalAddrDataStruct() // bundle saved final address after MMU
+            ///////////////////////////////////////
             when(one_level_error =/= U"00") {
                 // Write ERROR
                 write_error_to_csr(one_level_error, cur_privilege)
@@ -348,11 +388,11 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // Two Level //////////////////////////////////////////////////////////////////////////////////////////////////////
 
                 // Get next level page table entry address
-                val two_level_PTE_addr = one_level_PTE_data(55 downto 12) * 4096 + VA(29 downto 21) * 8
+                val two_level_PTE_addr = U(one_level_PTE_data(55 downto 12) * S(4096) + S(va(29 downto 21)) * S(8))
                 // Get data on address
                 val two_level_PTE_data = search_cache_address_commom_cache(dcache_commom, two_level_PTE_addr)
                 // Check PTE is illegal
-                val two_level_error = test_PTE_is_illgal(two_level_PTE_data, U(0), level_index, mstatue, cur_privilege)
+                val two_level_error = test_PTE_is_illgal(two_level_PTE_data, U(0), level_index, mstatue_data, cur_privilege)
 
                 when(two_level_error =/= U"00") {
                     // Write ERROR
@@ -367,17 +407,18 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // Three Level ////////////////////////////////////////////////////////////////////////////////////////////////////
 
                     // Get next level page table entry address
-                    val three_level_PTE_addr = two_level_PTE_addr(55 downto 12) * 4096 + VA(20 downto 12) * 8
+                    val three_level_PTE_addr = U(two_level_PTE_data(55 downto 12) * S(4096) + S(va(20 downto 12)) * S(8))
                     // Get data on address
                     val three_level_PTE_data = search_cache_address_commom_cache(dcache_commom, three_level_PTE_addr)
                     // Check PTE is illegal
-                    val three_level_error = test_PTE_is_illgal(three_level_PTE_data, U(0), level_index, mstatue, cur_privilege)
+                    val three_level_error = test_PTE_is_illgal(three_level_PTE_data, U(0), level_index, mstatue_data, cur_privilege)
                     
                     when(three_level_error =/= U"00") {
                         // Write ERROR
                         write_error_to_csr(three_level_error, cur_privilege)
                         mmu_fail := True
                     } .otherwise {
+                        fa.final_addr := U(three_level_PTE_data) // No error, write address to Bundle
                         mmu_fail := False
                     }
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -385,41 +426,68 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             }
             
 
-            
+            // Cache Logic ////////////////////////////////////////////////////////////////////////////////////////////////////
 
             when(io.i_read_en && !io.i_write_en) {
-                // read cache
+                // read cache ///////////////////////////////////
 
-                when(stap_PPN(63 downto 60) === U(0)) {
+                when(U(stap_PPN(63 downto 60)) === U(0)) {
                     // close virtual memory
-                    io.o_nread_data := dcache_commom(VA)
-                } .elsewhen(mmu_fail === False && stap_PPN(63 downto 60) === U(8)) {
+                    val close_va_addr = U(Cat(U"00000000000000000", io.i_read_addr))
+
+                    val read_data_tmp = dcache_commom(close_va_addr(PA - c_cap_tag - 1 downto 0)) // data in close_ca_addr
+
+                    when(read_data_tmp.tag === close_va_addr(PA downto PA - c_cap_tag)) {
+                        io.o_nread_data := read_data_tmp.data
+                    } .otherwise {
+                        io.o_nread_data := S(0) // error read
+                    }
+                } .elsewhen(mmu_fail === False && U(stap_PPN(63 downto 60)) === U(8)) {
                     // SV39 Mode
                     // Get Final PA
-                    val PA = Cat(three_level_PTE_data(55 downto 12), io.i_read_addr(11 downto 0))
+                    val pa = U(Cat(fa.final_addr(55 downto 12), io.i_read_addr(11 downto 0)))
 
                     // read cache
-                    io.o_nread_data := dcache_commom(PA)
+                    
+                    val read_data_tmp = dcache_commom(pa(PA - c_cap_tag - 1 downto 0)) // data in pa
+
+                    when(read_data_tmp.tag === pa(PA downto PA - c_cap_tag)) {
+                        io.o_nread_data := read_data_tmp.data
+                    } .otherwise {
+                        io.o_nread_data := S(0) // error read
+                    }
                 } .otherwise {
                     // Illegal
                     io.o_nread_data := S(0)
                 }
             } .elsewhen(!io.i_read_en && io.i_write_en && mmu_fail === False) {
-                // write cache
+                // write cache ///////////////////////////////////////
 
-                when(stap_PPN(63 downto 60) === U(0)) {
+                val need_write_data = new cacheDataStruct()
+
+                when(U(stap_PPN(63 downto 60)) === U(0)) {
                     // close virtual memory
-                    dcache_commom(VA) := io.i_nwrite_data
-                } .elsewhen(mmu_fail === False && stap_PPN(63 downto 60) === U(8)) {
+                    val close_va_addr = U(Cat(U"00000000000000000", io.i_write_addr))
+                    need_write_data.data := io.i_nwrite_data
+                    need_write_data.tag := close_va_addr(PA downto PA - c_cap_tag)
+                    need_write_data.use_flag := True
+
+                    // write
+                    dcache_commom(close_va_addr(PA - c_cap_tag - 1 downto 0)) := need_write_data // write data
+                } .elsewhen(mmu_fail === False && U(stap_PPN(63 downto 60)) === U(8)) {
                     // SV39 Mode
                     // Get Final PA
-                    val PA = Cat(three_level_PTE_data(55 downto 12), io.i_write_addr(11 downto 0))
+                    val pa = U(Cat(fa.final_addr(55 downto 12), io.i_read_addr(11 downto 0)))
+
+                    need_write_data.data := io.i_nwrite_data
+                    need_write_data.tag := pa(PA downto PA - c_cap_tag)
+                    need_write_data.use_flag := True
 
                     // write cache
-                    dcache_commom(PA) := io.i_nwrite_data
+                    dcache_commom(pa(PA - c_cap_tag - 1 downto 0)) := need_write_data
                 } .otherwise {
                     // Illegal
-                    dcache_commom(VA) := dcache_commom(VA)
+                    val illegal_bots = U(0)
                 }
             } .otherwise {
                 // Illegal
@@ -435,6 +503,31 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
 object dcache {
     def main(args: Array[String]) {
-        // TODO : main func
+        // Binary to Dec
+        def binaryToDecWithOutRecur(src: String): Long = {
+            // Convert bin ro dec
+            val finalSrc = src.replaceAll("_", "")
+            // println(finalSrc)
+
+		    if(!finalSrc.matches("[0|1]*")){
+		    	println("[Decoder Sim] INVALID INPUT .")
+		    	return 0
+		    }
+
+		    val tmp = finalSrc.reverse
+		    var res: Long = 0
+
+		    for(i <- 0 to tmp.length - 1){
+		    	res += tmp.substring(i, i + 1).toLong * (1 << i)
+		    }
+		    return res
+	    }
+
+        // 56-bits PA, 11-bits addr, 45-bits tag, 64-bits len, commom-cache Mode, 39-bits VA, 56-bits PA, sim-Mode enable
+        SimConfig.withWave.compile(new dcache(0, 2048, 45, 64, 1, 39, 56, true)).doSim { dut =>
+            dut.clockDomain.forkStimulus(period = 10) // time period
+
+            // TODO : sim code
+        }
     }
 }

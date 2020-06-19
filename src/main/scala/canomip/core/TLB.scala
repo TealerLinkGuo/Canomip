@@ -49,7 +49,7 @@ class TLB(tlb_cap: Int, tlb_cap_tag: Int, tlb_mode: Int, len: Int, VA: Int, PA: 
 
                 val tlb_readed_data = tlb(tlb_addr) // read TLB
 
-                when(tlb_readed_data.tag === tlb_tag && tlb_readed_data.use_flag === True) {
+                when(tlb_readed_data.tlb_tag === tlb_tag && tlb_readed_data.use_flag === True) {
                     io.o_tlb_statue := True // TLB hit
                     io.o_tlb_pt_data := tlb_readed_data.page_table_entry // output page table entry
                 } .otherwise {
