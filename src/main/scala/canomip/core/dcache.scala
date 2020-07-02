@@ -9,6 +9,7 @@
  * 2020/06/14 - build finish dcahce no test no sim - Tealer.Guo
  * 2020/06/19 - Fix some bugs, no sim - Tealer.Guo
  * 2020/06/20 - Fix some bugs, now errors can be track, change complex io single - Tealer.Guo
+ * 2020/07/02 - Fix bugsn, now can run sim - Tealer.Guo
  */
 package canomip.core
 
@@ -30,7 +31,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         // read TLB
         val o_tlb_read_en = out Bool() // TLB read EN
         val i_tlb_read_data = in SInt(len bits) // input page table in TLB
-        val i_tlb_statue = out Bool() // True - TLB hit, False - TLB miss
+        val i_tlb_statue = in Bool() // True - TLB hit, False - TLB miss
         // write TLB
         val o_tlb_write_en = out Bool() // TLB write EN
         val o_tlb_write_data = out SInt(len bits)
@@ -75,10 +76,19 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
         // utval 0x043. stval 0x143
 
-        // Logic 
+        // left LATCH
+        io.o_csr_write_en := False
+        io.o_csr_nwrite_addr := U(0)
+        io.o_csr_nwrite_data := S(0)
 
+        // Logic 
         when(privilege_now === U"01") {
             // S-Mode
+
+            // left LATCH
+            // io.o_csr_write_en := False
+            // io.o_csr_nwrite_addr := U(0)
+            // io.o_csr_nwrite_data := S(0)
 
             // write
             when(error_code === U(3)) {
@@ -99,6 +109,11 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             }
         } .elsewhen(privilege_now === U"00") {
             // U-Mode
+
+            // left LATCH
+            // io.o_csr_write_en := False
+            // io.o_csr_nwrite_addr := U(0)
+            // io.o_csr_nwrite_data := S(0)
 
             // write
             when(error_code === U(3)) {
@@ -121,8 +136,10 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // Illegal
             // M-Mode don't need mtval
             val carsh = U(0)
+            // io.o_csr_write_en := False
+            // io.o_csr_nwrite_addr := U(0) // utvel
+            // io.o_csr_nwrite_data := S(666) // Load page fault
         }
-        
     }
 
     def get_current_privilege(mstatue_data: SInt, sstatue_data: SInt, ustatue_data: SInt, ret_inst_statue: UInt): UInt = {
@@ -254,37 +271,64 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         def search_cache_address_commom_cache(cache: Mem[cacheDataStruct], addr: UInt): SInt = {
             // Search address in cache and mem and return data
 
+            // return data struct
             val return_value = new Bundle {
                 val rv = SInt(len bits)
             }
 
             // First search TLB
             io.o_tlb_read_en := True // enable TLB
-            io.o_tlb_addr := addr
+            io.o_tlb_addr := addr(55 downto 0)
+
+            // left LATCH
+            io.o_tlb_write_en := False
+            io.o_tlb_write_data := S(0)
+            io.o_mem_addr := U(0)
+            io.o_mem_read_en := False
+            io.o_mem_write_en := False
+            io.o_mem_nwrite_data := S(0)
+            return_value.rv := S(0)
             
             when(io.i_tlb_statue === False) {
                 // TLB miss
 
-                val cache_addr = addr(PA - c_cap_tag - 1 downto 0)
-                val cache_tag = addr(PA downto PA - c_cap_tag)
+                val addr_after = addr(55 downto 0) // after split addr
+                val cache_addr = addr_after(PA - c_cap_tag - 1 downto 0)
+                val cache_tag = addr_after(PA - 1 downto PA - c_cap_tag)
 
                 // search cache
                 val cache_data = cache(cache_addr)
+
+                // left LATCH
+                // io.o_tlb_write_en := False
+                // io.o_tlb_write_data := S(0)
+                // io.o_mem_addr := U(0)
+                // io.o_mem_read_en := False
+                // io.o_mem_write_en := False
+                // io.o_mem_nwrite_data := S(0)
 
                 when(cache_data.tag === cache_tag && cache_data.use_flag === True) {
                     // write TLB
                     io.o_tlb_read_en := False // close TLB read
                     io.o_tlb_write_en := True
-                    io.o_tlb_addr := addr
+                    io.o_tlb_addr := addr(55 downto 0)
                     io.o_tlb_write_data := cache_data.data
 
+                    // don't use
+                    // io.o_mem_addr := U(0)
+                    // io.o_mem_read_en := False
+                    // io.o_mem_write_en := False
+                    // io.o_mem_nwrite_data := S(0)
+
+                    // write return value
                     return_value.rv := cache_data.data
                 } .otherwise {
                     // cache miss
 
                     // mem access
                     io.o_mem_read_en := True
-                    io.o_mem_addr := addr
+                    io.o_mem_write_en := False
+                    io.o_mem_addr := addr(55 downto 0)
                     val mem_data = io.i_mem_nread_data
 
                     // write cache
@@ -299,15 +343,28 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     // write TLB
                     io.o_tlb_read_en := False // close TLB read
                     io.o_tlb_write_en := True
-                    io.o_tlb_addr := addr
+                    io.o_tlb_addr := addr(55 downto 0)
                     io.o_tlb_write_data := mem_data
+
+                    // don't use
+                    // io.o_mem_nwrite_data := S(0)
                 }
             } .otherwise {
                 // TLB hit
                 return_value.rv := io.i_tlb_read_data
+                // don't use left LATCH
+                // io.o_tlb_read_en := False
+                // io.o_tlb_write_en := False
+                // io.o_tlb_addr := U(0)
+                // io.o_tlb_write_data := S(0)
+                // // mem
+                // io.o_mem_addr := U(0)
+                // io.o_mem_read_en := False
+                // io.o_mem_write_en := False
+                // io.o_mem_nwrite_data := S(0)
             }
 
-            return return_value.rv
+            return return_value.rv // return
         }
 
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -326,7 +383,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             val va = io.i_cache_addr // get VA
 
             // level index
-            val level_index = Reg(SInt(2 bits)) init(2)
+            val level_index = Reg(SInt(3 bits)) init(2)
 
             // MMU fail 
             val mmu_fail = Reg(Bool()) init(false)
@@ -346,7 +403,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // Get next level page table entry address
             val one_level_PTE_addr = U(stap_PPN * S(4096) + S(va(38 downto 30)) * S(8))
             // Get data on address
-            val one_level_PTE_data = search_cache_address_commom_cache(dcache_commom, one_level_PTE_addr)
+            val one_level_PTE_data = search_cache_address_commom_cache(dcache_commom, one_level_PTE_addr) // one_level_PTE_addr is 59-bits bigger than PA 56-bits
             // Check PTE is illegal
             val one_level_error = test_PTE_is_illgal(one_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
             
@@ -356,7 +413,15 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             }
 
             val fa = new finalAddrDataStruct() // bundle saved final address after MMU
+
+            // left LATCH
+            fa.final_addr := U(0)
             ///////////////////////////////////////
+
+            // Left LATCH
+            io.o_csr_write_en := False
+            io.o_csr_nwrite_addr := U(0)
+            io.o_csr_nwrite_data := S(0)
 
             when(one_level_error =/= U"00") {
                 // Write ERROR
@@ -403,31 +468,40 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                         write_error_to_csr(three_level_error, cur_privilege)
                         mmu_fail := True
                     } .otherwise {
-                        fa.final_addr := U(three_level_PTE_data) // No error, write address to Bundle
+                        fa.final_addr := U(three_level_PTE_data(55 downto 0)) // No error, write address to Bundle // three_level_PTE_data is 64-bits bigger than 56-bits
                         mmu_fail := False
                     }
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            /////////////////////////////////////////////////////////////////////// ////////////////////////////////////////////
                 }
             }
             
 
             // Cache Logic ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+            io.o_nread_data := S(0) // left LATCH
             when(io.i_read_en && !io.i_write_en) {
                 // read cache ///////////////////////////////////
 
-                when(U(stap_PPN(63 downto 60)) === U(0)) {
+                // left LATCH
+                // io.o_nread_data := S(0)
+
+                // Logic
+                when(U(io.i_csr_satp) === U"0000") {
                     // close virtual memory
                     val close_va_addr = U(Cat(U"00000000000000000", va))
 
                     val read_data_tmp = dcache_commom(close_va_addr(PA - c_cap_tag - 1 downto 0)) // data in close_ca_addr
 
-                    when(read_data_tmp.tag === close_va_addr(PA downto PA - c_cap_tag)) {
+                    // left LATCH
+                    // io.o_nread_data := S(0)
+
+                    // logic
+                    when(read_data_tmp.tag === close_va_addr(PA - 1 downto PA - c_cap_tag)) {
                         io.o_nread_data := read_data_tmp.data
                     } .otherwise {
                         io.o_nread_data := S(0) // error read
                     }
-                } .elsewhen(mmu_fail === False && U(stap_PPN(63 downto 60)) === U(8)) {
+                } .elsewhen(mmu_fail === False && U(io.i_csr_satp) === U(8)) {
                     // SV39 Mode
                     // Get Final PA
                     val pa = U(Cat(fa.final_addr(55 downto 12), va(11 downto 0)))
@@ -436,7 +510,11 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     
                     val read_data_tmp = dcache_commom(pa(PA - c_cap_tag - 1 downto 0)) // data in pa
 
-                    when(read_data_tmp.tag === pa(PA downto PA - c_cap_tag)) {
+                    // left LATCH
+                    // io.o_nread_data := S(0)
+
+                    // logic
+                    when(read_data_tmp.tag === pa(PA - 1 downto PA - c_cap_tag)) {
                         io.o_nread_data := read_data_tmp.data
                     } .otherwise {
                         io.o_nread_data := S(0) // error read
@@ -450,22 +528,28 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
                 val need_write_data = new cacheDataStruct()
 
-                when(U(stap_PPN(63 downto 60)) === U(0)) {
+                // left LATCH
+                need_write_data.data := S(0)
+                need_write_data.tag := U(0)
+                need_write_data.use_flag := False
+
+                // logic
+                when(U(io.i_csr_satp) === U(0)) {
                     // close virtual memory
                     val close_va_addr = U(Cat(U"00000000000000000", va))
                     need_write_data.data := io.i_nwrite_data
-                    need_write_data.tag := close_va_addr(PA downto PA - c_cap_tag)
+                    need_write_data.tag := close_va_addr(PA - 1 downto PA - c_cap_tag)
                     need_write_data.use_flag := True
 
                     // write
                     dcache_commom(close_va_addr(PA - c_cap_tag - 1 downto 0)) := need_write_data // write data
-                } .elsewhen(mmu_fail === False && U(stap_PPN(63 downto 60)) === U(8)) {
+                } .elsewhen(mmu_fail === False && U(io.i_csr_satp) === U(8)) {
                     // SV39 Mode
                     // Get Final PA
                     val pa = U(Cat(fa.final_addr(55 downto 12), va(11 downto 0)))
 
                     need_write_data.data := io.i_nwrite_data
-                    need_write_data.tag := pa(PA downto PA - c_cap_tag)
+                    need_write_data.tag := pa(PA - 1 downto PA - c_cap_tag)
                     need_write_data.use_flag := True
 
                     // write cache
