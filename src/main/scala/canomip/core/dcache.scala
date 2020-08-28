@@ -11,6 +11,12 @@
  * 2020/06/20 - Fix some bugs, now errors can be track, change complex io single - Tealer.Guo
  * 2020/07/02 - Fix bugsn, now can run sim - Tealer.Guo
  */
+
+ /**
+  * ERRORS and FUTURE
+  * ERROR : Can't compute the correct Page Table address, may be the type convert problem
+  * FUTURE : None
+  */
 package canomip.core
 
 import spinal.core._
@@ -37,7 +43,8 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val o_tlb_write_data = out SInt(len bits)
 
     // Cache RW
-        val i_cache_addr = in UInt(VA bits) // need cache rw address
+        // val i_cache_addr = in UInt(VA bits) // need cache rw address
+        val i_cache_addr = in UInt(PA bits) // need cache rw address
         // read cache
         val i_read_en = in Bool() // read EN
         val o_nread_data = out SInt(len bits) // need read data
@@ -59,7 +66,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
         val i_csr_mstatue = in SInt(len bits)
         val i_csr_sstatue = in SInt(len bits)
         val i_csr_ustatue = in SInt(len bits)
-        val i_csr_satp = in SInt(len bits)
+        val i_csr_satp = in UInt(len bits)
         // write csr
         val o_csr_write_en = out Bool() // csr write EN
         val o_csr_nwrite_addr = out UInt(12 bits) // csr need write address
@@ -67,6 +74,17 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
     // Trap-return instruction statue
         val i_ret_inst_statue = in UInt(2 bits) // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+    // Test output
+        // val o_level_index = out SInt(3 bits)
+        val o_one_level_pte_addr = out UInt(57 bits) // pte addr now
+        val o_one_level_pte_satpPPN = out UInt(44 bits) // satp ppn now
+        val o_one_level_pte_VPN = out UInt(9 bits) // pte vpn now
+        val o_one_level_pte_data = out SInt(64 bits) // pte data now
+        val o_cache_onelevepte_tag = out UInt(c_cap_tag bits) // cache tag now
+        val o_cache_onelevepte_data = out SInt(64 bits) // cahce data now
+        val o_cahce_onelevepte_addr = out UInt(PA - c_cap_tag bits) // cahce addr now
+        val o_cache_onelevepte_tag_true = out UInt(c_cap_tag bits) // true cahce tag
     }
 
     // Logic
@@ -96,11 +114,28 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                 io.o_csr_write_en := True
                 io.o_csr_nwrite_addr := U(323) // stvel
                 io.o_csr_nwrite_data := S(4) // Load address misaligned
+            // debug change, delete when update
             } .elsewhen(error_code === U(1) || error_code === U(2) || error_code === U(4) || error_code === U(5)) {
                 // 权限错误, MXR error, PTE无效, 特权级错误
                 io.o_csr_write_en := True
                 io.o_csr_nwrite_addr := U(323) // stvel
                 io.o_csr_nwrite_data := S(13) // Load page fault
+            // } .elsewhen(error_code === U(1)) { // debug used, delete before update
+            //     io.o_csr_write_en := True
+            //     io.o_csr_nwrite_addr := U(323) // stvel
+            //     io.o_csr_nwrite_data := S(14) // Load page fault
+            // }.elsewhen(error_code === U(2)) {
+            //     io.o_csr_write_en := True
+            //     io.o_csr_nwrite_addr := U(323) // stvel
+            //     io.o_csr_nwrite_data := S(15) // Load page fault
+            // } .elsewhen(error_code === U(4)) {
+            //     io.o_csr_write_en := True
+            //     io.o_csr_nwrite_addr := U(323) // stvel
+            //     io.o_csr_nwrite_data := S(16) // Load page fault
+            // } .elsewhen(error_code === U(5)) {
+            //     io.o_csr_write_en := True
+            //     io.o_csr_nwrite_addr := U(323) // stvel
+            //     io.o_csr_nwrite_data := S(17) // Load page fault
             } .otherwise {
                 // Correct
                 io.o_csr_write_en := False
@@ -182,7 +217,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 
         // get SUM and MXR
         val MXR = mstatue_data(19)
-        val SUM = mstatue_data(18)
+        val SUM = mstatue_data(18) // TODO : SUM value check error
 
         when(level_index === S(0)) {
             // don't have next node
@@ -228,12 +263,12 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                         }
                 } .elsewhen(U(pte_data(6)) === U"0") {
                     // pte.a = 0
-                    return_value.rv := U(5)
+                    return_value.rv := U(5) // debug change to 3, it is 5
                 }.otherwise {
                     return_value.rv := U(1) // 权限错误(rwx位于当前模式不符)
                 }
             } .otherwise {
-                return_value.rv := U(5) // PTE无效
+                return_value.rv := U(5) // PTE无效 // debug change to 0, it is 5
             }
         } .elsewhen(level_index > S(0)) { // level_index > 0
             // have next node
@@ -244,7 +279,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     return_value.rv := U(0) // correct
                 }
             } .otherwise {
-                return_value.rv := U(5) // PTE无效
+                return_value.rv := U(5) // PTE无效 // debug change to 0, it is 5
             }
         } .otherwise { // level_index < 0
             // 未对齐
@@ -279,6 +314,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // First search TLB
             io.o_tlb_read_en := True // enable TLB
             io.o_tlb_addr := addr(55 downto 0)
+            // io.o_tlb_addr := addr
 
             // left LATCH
             io.o_tlb_write_en := False
@@ -293,6 +329,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                 // TLB miss
 
                 val addr_after = addr(55 downto 0) // after split addr
+                // val addr_after = addr
                 val cache_addr = addr_after(PA - c_cap_tag - 1 downto 0)
                 val cache_tag = addr_after(PA - 1 downto PA - c_cap_tag)
 
@@ -307,11 +344,12 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                 // io.o_mem_write_en := False
                 // io.o_mem_nwrite_data := S(0)
 
-                when(cache_data.tag === cache_tag && cache_data.use_flag === True) {
+                when(cache_data.tag === cache_tag && cache_data.use_flag === True) { // cache hit
                     // write TLB
                     io.o_tlb_read_en := False // close TLB read
                     io.o_tlb_write_en := True
-                    io.o_tlb_addr := addr(55 downto 0)
+                    io.o_tlb_addr := addr(55 downto 0) // after split addr
+                    // io.o_tlb_addr := addr
                     io.o_tlb_write_data := cache_data.data
 
                     // don't use
@@ -328,7 +366,8 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     // mem access
                     io.o_mem_read_en := True
                     io.o_mem_write_en := False
-                    io.o_mem_addr := addr(55 downto 0)
+                    io.o_mem_addr := addr(55 downto 0) // after split addr
+                    // io.o_mem_addr := addr
                     val mem_data = io.i_mem_nread_data
 
                     // write cache
@@ -343,7 +382,8 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     // write TLB
                     io.o_tlb_read_en := False // close TLB read
                     io.o_tlb_write_en := True
-                    io.o_tlb_addr := addr(55 downto 0)
+                    io.o_tlb_addr := addr(55 downto 0) // after split addr
+                    // io.o_tlb_addr := addr
                     io.o_tlb_write_data := mem_data
 
                     // don't use
@@ -380,17 +420,17 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // data struct
             val dcache_commom = Mem(cacheDataStruct(), wordCount = c_cap) // commom cache
 
-            val va = io.i_cache_addr // get VA
+            val va = io.i_cache_addr(38 downto 0) // get VA 39-bits
 
             // level index
-            val level_index = Reg(SInt(3 bits)) init(2)
+            // val level_index = Reg(SInt(3 bits)) init(2)
 
             // MMU fail 
             val mmu_fail = Reg(Bool()) init(false)
 
             // First read csr get satp.PPN
 
-            val stap_PPN = io.i_csr_satp(44 downto 0) // satp.PPN data
+            val stap_PPN = io.i_csr_satp(43 downto 0) // satp.PPN data 44-bits
 
 
             // Get current privilege
@@ -401,11 +441,24 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             // One Level //////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // Get next level page table entry address
-            val one_level_PTE_addr = U(stap_PPN * S(4096) + S(va(38 downto 30)) * S(8))
+            // val one_level_PTE_addr = U(stap_PPN * S(4096) + S(va(38 downto 30)) * S(8))
+            val one_level_PTE_addr = stap_PPN * U(4096) + va(38 downto 30) * U(8)
+            io.o_one_level_pte_addr := one_level_PTE_addr(56 downto 0) // debug, remove by publish
+            io.o_one_level_pte_satpPPN := stap_PPN // debug, remove by publish
+            io.o_one_level_pte_VPN := va(38 downto 30) // debug, remove by publish
+            // println("----------------------")
+            // println(one_level_PTE_addr.asBits)
+            // println("----------------------")
             // Get data on address
             val one_level_PTE_data = search_cache_address_commom_cache(dcache_commom, one_level_PTE_addr) // one_level_PTE_addr is 59-bits bigger than PA 56-bits
+            io.o_one_level_pte_data := one_level_PTE_data // debug, remove before publish
+            io.o_cache_onelevepte_data := dcache_commom(one_level_PTE_addr(PA - c_cap_tag - 1 downto 0)).data // debug, remove before publish
+            io.o_cache_onelevepte_tag := dcache_commom(one_level_PTE_addr(PA - c_cap_tag - 1 downto 0)).tag // debug, remove before publish
+            io.o_cahce_onelevepte_addr := one_level_PTE_addr(PA - c_cap_tag - 1 downto 0) // debug, remove before publish
+            io.o_cache_onelevepte_tag_true := one_level_PTE_addr(PA - 1 downto PA - c_cap_tag) // debug, remove before publish
             // Check PTE is illegal
-            val one_level_error = test_PTE_is_illgal(one_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
+            // val one_level_error = test_PTE_is_illgal(one_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
+            val one_level_error = test_PTE_is_illgal(one_level_PTE_data, U(0), S(2), io.i_csr_mstatue, cur_privilege)
             
             // final address //////////////////////
             case class finalAddrDataStruct() extends Bundle {
@@ -424,71 +477,80 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
             io.o_csr_nwrite_data := S(0)
 
             when(one_level_error =/= U"00") {
+                // Has errors
                 // Write ERROR
                 write_error_to_csr(one_level_error, cur_privilege)
-                mmu_fail := True
+                mmu_fail := True // set fail flag
             } .otherwise {
-                
-
+                // don't has error
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
                 // level -1
-                level_index := level_index - 1
+                // level_index := level_index - 1
 
             // Two Level //////////////////////////////////////////////////////////////////////////////////////////////////////
 
                 // Get next level page table entry address
-                val two_level_PTE_addr = U(one_level_PTE_data(55 downto 12) * S(4096) + S(va(29 downto 21)) * S(8))
+                // val two_level_PTE_addr = U(one_level_PTE_data(55 downto 12) * S(4096) + S(va(29 downto 21)) * S(8))
+                val two_level_PTE_addr = U(one_level_PTE_data(55 downto 12)) * U(4096) + va(29 downto 21) * U(8)
                 // Get data on address
                 val two_level_PTE_data = search_cache_address_commom_cache(dcache_commom, two_level_PTE_addr)
                 // Check PTE is illegal
-                val two_level_error = test_PTE_is_illgal(two_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
+                // val two_level_error = test_PTE_is_illgal(two_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
+                val two_level_error = test_PTE_is_illgal(two_level_PTE_data, U(0), S(1), io.i_csr_mstatue, cur_privilege)
 
                 when(two_level_error =/= U"00") {
+                    // Has errors
                     // Write ERROR
                     write_error_to_csr(two_level_error, cur_privilege)
-                    mmu_fail := True
+                    mmu_fail := True // set fail flag
                 } .otherwise {
+                    // Don't has error
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
                     // level -1
-                    level_index := level_index - 1
+                    // level_index := level_index - 1
 
             // Three Level ////////////////////////////////////////////////////////////////////////////////////////////////////
 
                     // Get next level page table entry address
-                    val three_level_PTE_addr = U(two_level_PTE_data(55 downto 12) * S(4096) + S(va(20 downto 12)) * S(8))
+                    // val three_level_PTE_addr = U(two_level_PTE_data(55 downto 12) * S(4096) + S(va(20 downto 12)) * S(8))
+                    val three_level_PTE_addr = U(two_level_PTE_data(55 downto 12)) * U(4096) + va(20 downto 12) * U(8)
                     // Get data on address
                     val three_level_PTE_data = search_cache_address_commom_cache(dcache_commom, three_level_PTE_addr)
                     // Check PTE is illegal
-                    val three_level_error = test_PTE_is_illgal(three_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
+                    // val three_level_error = test_PTE_is_illgal(three_level_PTE_data, U(0), level_index, io.i_csr_mstatue, cur_privilege)
+                    val three_level_error = test_PTE_is_illgal(three_level_PTE_data, U(0), S(0), io.i_csr_mstatue, cur_privilege)
                     
                     when(three_level_error =/= U"00") {
+                        // Has error
                         // Write ERROR
                         write_error_to_csr(three_level_error, cur_privilege)
                         mmu_fail := True
                     } .otherwise {
+                        // Don't has error
                         fa.final_addr := U(three_level_PTE_data(55 downto 0)) // No error, write address to Bundle // three_level_PTE_data is 64-bits bigger than 56-bits
-                        mmu_fail := False
+                        mmu_fail := False // set fail flag
                     }
             /////////////////////////////////////////////////////////////////////// ////////////////////////////////////////////
                 }
             }
             
-
+            // io.o_level_index := level_index // test
             // Cache Logic ////////////////////////////////////////////////////////////////////////////////////////////////////
 
             io.o_nread_data := S(0) // left LATCH
             when(io.i_read_en && !io.i_write_en) {
-                // read cache ///////////////////////////////////
+                // read cache //////////////////////////////////////////////////////////////////////////////////////////////////
 
                 // left LATCH
                 // io.o_nread_data := S(0)
 
                 // Logic
-                when(U(io.i_csr_satp) === U"0000") {
+                when(io.i_csr_satp(63 downto 60) === U"0000") {
                     // close virtual memory
-                    val close_va_addr = U(Cat(U"00000000000000000", va))
+                    // val close_va_addr = U(Cat(U"00000000000000000", va))
+                    val close_va_addr = io.i_cache_addr // direct use PA as addr
 
                     val read_data_tmp = dcache_commom(close_va_addr(PA - c_cap_tag - 1 downto 0)) // data in close_ca_addr
 
@@ -501,7 +563,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     } .otherwise {
                         io.o_nread_data := S(0) // error read
                     }
-                } .elsewhen(mmu_fail === False && U(io.i_csr_satp) === U(8)) {
+                } .elsewhen(mmu_fail === False && io.i_csr_satp(63 downto 60) === U(8)) {
                     // SV39 Mode
                     // Get Final PA
                     val pa = U(Cat(fa.final_addr(55 downto 12), va(11 downto 0)))
@@ -524,7 +586,7 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                     io.o_nread_data := S(0)
                 }
             } .elsewhen(!io.i_read_en && io.i_write_en && mmu_fail === False) {
-                // write cache ///////////////////////////////////////
+                // write cache /////////////////////////////////////////////////////////////////////////////////////////////
 
                 val need_write_data = new cacheDataStruct()
 
@@ -534,16 +596,17 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
                 need_write_data.use_flag := False
 
                 // logic
-                when(U(io.i_csr_satp) === U(0)) {
+                when(io.i_csr_satp(63 downto 60) === U(0)) {
                     // close virtual memory
-                    val close_va_addr = U(Cat(U"00000000000000000", va))
+                    // val close_va_addr = U(Cat(U"00000000000000000", va))
+                    val close_va_addr = io.i_cache_addr // direct use PA as addr
                     need_write_data.data := io.i_nwrite_data
                     need_write_data.tag := close_va_addr(PA - 1 downto PA - c_cap_tag)
                     need_write_data.use_flag := True
 
                     // write
                     dcache_commom(close_va_addr(PA - c_cap_tag - 1 downto 0)) := need_write_data // write data
-                } .elsewhen(mmu_fail === False && U(io.i_csr_satp) === U(8)) {
+                } .elsewhen(mmu_fail === False && io.i_csr_satp(63 downto 60) === U(8)) {
                     // SV39 Mode
                     // Get Final PA
                     val pa = U(Cat(fa.final_addr(55 downto 12), va(11 downto 0)))
@@ -573,30 +636,192 @@ class dcache(c_mode: Int, c_cap: Int, c_cap_tag: Int, len: Int, mode: Int, VA: I
 object dcache {
     def main(args: Array[String]) {
         // Binary to Dec
-        // def binaryToDecWithOutRecur(src: String): Long = {
-        //     // Convert bin ro dec
-        //     val finalSrc = src.replaceAll("_", "")
-        //     // println(finalSrc)
+        def binaryToDecWithOutRecur(src: String): Long = {
+            // Convert bin ro dec
+            val finalSrc = src.replaceAll("_", "")
+            // println(finalSrc)
 
-		//     if(!finalSrc.matches("[0|1]*")){
-		//     	println("[Decoder Sim] INVALID INPUT .")
-		//     	return 0
-		//     }
+		    if(!finalSrc.matches("[0|1]*")){
+		    	println("[Decoder Sim] INVALID INPUT .")
+		    	return 0
+		    }
 
-		//     val tmp = finalSrc.reverse
-		//     var res: Long = 0
+		    val tmp = finalSrc.reverse
+		    var res: Long = 0
 
-		//     for(i <- 0 to tmp.length - 1){
-		//     	res += tmp.substring(i, i + 1).toLong * (1 << i)
-		//     }
-		//     return res
-	    // }
+		    for(i <- 0 to tmp.length - 1){
+		    	res += tmp.substring(i, i + 1).toLong * (1 << i)
+		    }
+		    return res
+	    }
 
         // 56-bits PA, 11-bits addr, 45-bits tag, 64-bits len, commom-cache Mode, 39-bits VA, 56-bits PA, sim-Mode enable
         SimConfig.withWave.compile(new dcache(0, 2048, 45, 64, 1, 39, 56, true)).doSim { dut =>
             dut.clockDomain.forkStimulus(period = 10) // time period
 
-            // TODO : sim code
+            // don't use mmu write ////////////////////////////////////////////////////////////////////////////////////
+            // tlb
+            // don't use mmu then no need tlb
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            dut.io.i_cache_addr #= 666
+            dut.io.i_read_en #= false
+            dut.io.i_write_en #= true
+            dut.io.i_nwrite_data #= 123456
+            // Mem
+            dut.io.i_mem_nread_data #= 0
+            // CSR
+            dut.io.i_csr_mstatue #= 0
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            dut.io.i_csr_satp #= 0 // close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= 0 // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // don't use mmu read /////////////////////////////////////////////////////////////////////////////////////
+            // tlb
+            // don't use mmu then no need tlb
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            dut.io.i_cache_addr #= 666
+            dut.io.i_read_en #= true
+            dut.io.i_write_en #= false
+            dut.io.i_nwrite_data #= 0
+            // Mem
+            dut.io.i_mem_nread_data #= 123456
+            // CSR
+            dut.io.i_csr_mstatue #= 0
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            dut.io.i_csr_satp #= 0 // close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= 0 // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // assert
+            assert(dut.io.o_nread_data.toLong == 123456)
+
+            // prepare mmu, use no mmu write one level PTE, S-MODE //////////////////////////////////////////////////////////////////////////
+            // use mmu read VA : VPN[2] - 001001110 | VPN[1] - 111000001 | VPN[0] - 000011101 | OFFSET - 111000011110
+            // satp.PPN[44] : 11110000111100011100010000001111001110000001
+            // tlb
+            // don't use mmu then no need tlb
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            // dut.io.i_cache_addr #= binaryToDecWithOutRecur("11110000111100011100010000001111001110000001") * 4096 + binaryToDecWithOutRecur("001001110") * 8 // one level PTE address
+            dut.io.i_cache_addr #= BigInt("67819818781774448") // one level PTE address
+            dut.io.i_read_en #= false
+            dut.io.i_write_en #= true
+            // dut.io.i_nwrite_data #= binaryToDecWithOutRecur("0000000000_11100011100001111000111101_111000001_111000110_00_0_1_0_0_0_0_0_1") // PTE one
+            dut.io.i_nwrite_data #= BigInt("16010967495153729") // PTE one
+            // dut.io.i_nwrite_data #= ("16010967495153729").toLong // PTE one
+            // Mem
+            dut.io.i_mem_nread_data #= 0
+            // CSR
+            dut.io.i_csr_mstatue #= 0
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            dut.io.i_csr_satp #= 0 // close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= 0 // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // prepare mmu, use no mmu write two level PTE, S-MODE /////////////////////////////////////////////////////////////////////////
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            // dut.io.i_cache_addr #= binaryToDecWithOutRecur("11100011100001111000111101_111000001_111000110") * 4096 + binaryToDecWithOutRecur("111000001") * 8 // one level PTE address
+            dut.io.i_cache_addr #= BigInt("64043869980618248") // one level PTE address
+            dut.io.i_read_en #= false
+            dut.io.i_write_en #= true
+            // dut.io.i_nwrite_data #= binaryToDecWithOutRecur("0000000000_00000011100001111000111101_101001001_100101011_00_0_1_0_0_0_0_0_1") // PTE two
+            dut.io.i_nwrite_data #= BigInt("248368736283713") // PTE two
+            // dut.io.i_nwrite_data #= ("248368736283713").toLong // PTE two
+            // Mem
+            dut.io.i_mem_nread_data #= 0
+            // CSR
+            dut.io.i_csr_mstatue #= 0
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            dut.io.i_csr_satp #= 0 // close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= 0 // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // prepare mmu, use no mmu write three level PTE, S-MODE ///////////////////////////////////////////////////////////////////
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            // dut.io.i_cache_addr #= binaryToDecWithOutRecur("00000011100001111000111101_101001001_100101011") * 4096 + binaryToDecWithOutRecur("000011101") * 8 // one level PTE address
+            dut.io.i_cache_addr #= BigInt("993474945134824") // one level PTE address
+            dut.io.i_read_en #= false
+            dut.io.i_write_en #= true
+            // dut.io.i_nwrite_data #= binaryToDecWithOutRecur("0000000000_11000011100001111010100101_101001001_000110110_00_0_1_0_0_1_0_1_1") // PTE three
+            dut.io.i_nwrite_data #= BigInt("13759195535431755") // PTE three
+            // Mem
+            dut.io.i_mem_nread_data #= 0
+            // CSR
+            dut.io.i_csr_mstatue #= 0
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            dut.io.i_csr_satp #= 0 // close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= 0 // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // prepare mmu, use no mmu write PA : 11000011100001111010100101101001001000110110 | OFFEST : 111000011110 ///////////////////////
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            // dut.io.i_cache_addr #= binaryToDecWithOutRecur("11000011100001111010100101101001001000110110_111000011110") // 56-bits
+            dut.io.i_cache_addr #= BigInt("55036782141730334") // 56-bits
+            dut.io.i_read_en #= false
+            dut.io.i_write_en #= true
+            dut.io.i_nwrite_data #= 143858
+            // Mem
+            dut.io.i_mem_nread_data #= 0
+            // CSR
+            dut.io.i_csr_mstatue #= 0
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            dut.io.i_csr_satp #= 0 // close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= 0 // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // use mmu, S-MODE, VA : VPN[2] - 111001110 | VPN[1] - 111000001 | VPN[0] - 000011101 | OFFSET - 111000011110 /////////////////
+            dut.io.i_tlb_read_data #= 0
+            dut.io.i_tlb_statue #= false // True - TLB hit, False - TLB miss
+            // Cache
+            // dut.io.i_cache_addr #= (binaryToDecWithOutRecur("001001110_111000001_000011101_111000011110")).toLong // 39-bits
+            dut.io.i_cache_addr #= ("84693605918").toLong // 39-bits
+            dut.io.i_read_en #= true
+            dut.io.i_write_en #= false
+            dut.io.i_nwrite_data #= 0
+            // Mem
+            dut.io.i_mem_nread_data #= 143858
+            // CSR
+            dut.io.i_csr_mstatue #= binaryToDecWithOutRecur("01_00000000000") // set S-MODE, MPP : 01
+            dut.io.i_csr_sstatue #= 0
+            dut.io.i_csr_ustatue #= 0
+            // dut.io.i_csr_satp #= binaryToDecWithOutRecur("1000_0000000000000000_11110000111100011100010000001111001110000001") // close mmu
+            dut.io.i_csr_satp #= BigInt("9223388594427720577")// close mmu
+            // Trap-return instruction statue
+            dut.io.i_ret_inst_statue #= binaryToDecWithOutRecur("01") // 00 - no exec, 01 - MRET, 10 - SRET, 11 - URET
+
+            dut.clockDomain.waitSampling(1) // time wait
+
+            // assert(dut.io.o_nread_data.toLong == 143858)
         }
     }
 }
